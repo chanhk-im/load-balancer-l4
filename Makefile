@@ -1,6 +1,6 @@
 CC = gcc
 thread = -lpthread
-LB_FILES = lbpre.c server_pool.c nat_table.c
+LB_FILES = lb.c server_pool.c nat_table.c
 SERVER = server/echo_serv.c
 CLIENT = client/tcp_client.c
 

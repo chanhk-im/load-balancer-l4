@@ -7,6 +7,8 @@ nat_table_t *nat_table_init() {
     new_table->head = NULL;
     new_table->tail = NULL;
     new_table->size = 0;
+
+    return new_table;
 }
 
 void nat_table_push(nat_table_t *nat_table, nat_table_elem_t *elem) {

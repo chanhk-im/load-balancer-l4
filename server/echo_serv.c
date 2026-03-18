@@ -33,8 +33,8 @@ typedef struct __resource_t {
 void error_handling(char *message);
 void *lb_thread_func(void *arg);
 void *serv_thread_func(void *arg);
-double get_memory_usage();
-double get_cpu_usage();
+// double get_memory_usage();
+// double get_cpu_usage();
 
 int lb_sock;
 resource_t res;
@@ -135,8 +135,8 @@ void error_handling(char *message) {
 
 void *lb_thread_func(void *arg) {
     while (1) {
-        res.cpu_usage = get_cpu_usage();
-        res.memory_left = get_memory_usage();
+        res.cpu_usage = 0.0001;
+        res.memory_left = 0.0001;
         res.serv_port = serv_adr.sin_port;
         int tmp = send(lb_sock, &res, sizeof(resource_t), 0);
         sleep(5);
@@ -157,69 +157,69 @@ void *serv_thread_func(void *arg) {
     res.num_connected_client--;
 }
 
-double get_memory_usage() {
-    FILE *file = fopen("/proc/meminfo", "r");
-    if (file == NULL) {
-        perror("Failed to open /proc/meminfo");
-        return -1.0;
-    }
+// double get_memory_usage() {
+//     FILE *file = fopen("/proc/meminfo", "r");
+//     if (file == NULL) {
+//         perror("Failed to open /proc/meminfo");
+//         return -1.0;
+//     }
 
-    char line[256];
-    unsigned long mem_total = 0, mem_free = 0, buffers = 0, cached = 0;
+//     char line[256];
+//     unsigned long mem_total = 0, mem_free = 0, buffers = 0, cached = 0;
 
-    while (fgets(line, sizeof(line), file)) {
-        sscanf(line, "MemTotal: %lu kB", &mem_total);
-        sscanf(line, "MemFree: %lu kB", &mem_free);
-        sscanf(line, "Buffers: %lu kB", &buffers);
-        sscanf(line, "Cached: %lu kB", &cached);
-    }
-    fclose(file);
+//     while (fgets(line, sizeof(line), file)) {
+//         sscanf(line, "MemTotal: %lu kB", &mem_total);
+//         sscanf(line, "MemFree: %lu kB", &mem_free);
+//         sscanf(line, "Buffers: %lu kB", &buffers);
+//         sscanf(line, "Cached: %lu kB", &cached);
+//     }
+//     fclose(file);
 
-    unsigned long mem_used = mem_total - mem_free - buffers - cached;
-    return (double)mem_used / (double)mem_total;
-}
+//     unsigned long mem_used = mem_total - mem_free - buffers - cached;
+//     return (double)mem_used / (double)mem_total;
+// }
 
-double get_cpu_usage() {
-    FILE *file;
-    char buffer[1024];
-    unsigned long long int user, nice, system, idle, iowait, irq, softirq, steal;
-    unsigned long long int total_time_1, total_time_2, idle_time_1, idle_time_2;
+// double get_cpu_usage() {
+//     FILE *file;
+//     char buffer[1024];
+//     unsigned long long int user, nice, system, idle, iowait, irq, softirq, steal;
+//     unsigned long long int total_time_1, total_time_2, idle_time_1, idle_time_2;
 
-    // Read the first sample
-    file = fopen("/proc/stat", "r");
-    if (file == NULL) {
-        perror("Failed to open /proc/stat");
-        return -1.0;
-    }
-    fgets(buffer, sizeof(buffer), file);
-    sscanf(buffer, "cpu %llu %llu %llu %llu %llu %llu %llu %llu", &user, &nice, &system, &idle, &iowait, &irq, &softirq,
-           &steal);
-    fclose(file);
+//     // Read the first sample
+//     file = fopen("/proc/stat", "r");
+//     if (file == NULL) {
+//         perror("Failed to open /proc/stat");
+//         return -1.0;
+//     }
+//     fgets(buffer, sizeof(buffer), file);
+//     sscanf(buffer, "cpu %llu %llu %llu %llu %llu %llu %llu %llu", &user, &nice, &system, &idle, &iowait, &irq, &softirq,
+//            &steal);
+//     fclose(file);
 
-    total_time_1 = user + nice + system + idle + iowait + irq + softirq + steal;
-    idle_time_1 = idle + iowait;
+//     total_time_1 = user + nice + system + idle + iowait + irq + softirq + steal;
+//     idle_time_1 = idle + iowait;
 
-    // Sleep for a second
-    sleep(1);
+//     // Sleep for a second
+//     sleep(1);
 
-    // Read the second sample
-    file = fopen("/proc/stat", "r");
-    if (file == NULL) {
-        perror("Failed to open /proc/stat");
-        return -1.0;
-    }
-    fgets(buffer, sizeof(buffer), file);
-    sscanf(buffer, "cpu %llu %llu %llu %llu %llu %llu %llu %llu", &user, &nice, &system, &idle, &iowait, &irq, &softirq,
-           &steal);
-    fclose(file);
+//     // Read the second sample
+//     file = fopen("/proc/stat", "r");
+//     if (file == NULL) {
+//         perror("Failed to open /proc/stat");
+//         return -1.0;
+//     }
+//     fgets(buffer, sizeof(buffer), file);
+//     sscanf(buffer, "cpu %llu %llu %llu %llu %llu %llu %llu %llu", &user, &nice, &system, &idle, &iowait, &irq, &softirq,
+//            &steal);
+//     fclose(file);
 
-    total_time_2 = user + nice + system + idle + iowait + irq + softirq + steal;
-    idle_time_2 = idle + iowait;
+//     total_time_2 = user + nice + system + idle + iowait + irq + softirq + steal;
+//     idle_time_2 = idle + iowait;
 
-    // Calculate CPU usage
-    double total_diff = total_time_2 - total_time_1;
-    double idle_diff = idle_time_2 - idle_time_1;
-    double usage = (total_diff - idle_diff) / total_diff;
+//     // Calculate CPU usage
+//     double total_diff = total_time_2 - total_time_1;
+//     double idle_diff = idle_time_2 - idle_time_1;
+//     double usage = (total_diff - idle_diff) / total_diff;
 
-    return usage;
-}
+//     return usage;
+// }

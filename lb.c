@@ -15,21 +15,13 @@
 
 #define BUF_SIZE 1024
 #define MAX_SERVER_POOL 10
-#define SERVER_COUNT 3
+#define SERVER_COUNT 2
 #define CLIENT_COUNT 8
 #define ALGORITHM_FLAG 1  // 0: RR, 1: LC, 2: RB
 // #define DEBUG
 
-// typedef enum {
-//     RR,  // round robin
-//     LC,  // least connection
-//     RB   // resource based
-// } algorithm_flag;
-
-// Before run this code, execute the command below
 // $ sudo iptables -A OUTPUT -p tcp --tcp-flags RST RST -j DROP
 struct pseudo_header {
-    //...
     __uint32_t saddr;
     __uint32_t daddr;
     __uint8_t reserved;
@@ -37,18 +29,18 @@ struct pseudo_header {
     __uint16_t tcp_len;
 };
 
-void error_handling(char *message);
-unsigned short checksum(unsigned short *buffer, int size);
-void server_recv_first_info(server_t *serv);
-void *server_thread_func(void *arg);
+void error_handling(char* message);
+unsigned short checksum(unsigned short* buffer, int size);
+void server_recv_first_info(server_t* serv);
+void* server_thread_func(void* arg);
 int check_conditions();
 server_t parse_source_addr();
 server_t parse_dest_addr();
-server_t *match_server();
+server_t* match_server();
 
 void modify_packet(int lb_port, uint32_t ip_addr, int port);
 
-server_pool_t *server_pool;
+server_pool_t* server_pool;
 int lb_sock, serv_sock;
 struct sockaddr_in lb_adr;
 struct sockaddr_in serv_adr;
@@ -59,14 +51,14 @@ pthread_t serv_threads[SERVER_COUNT];
 char buffer[BUF_SIZE];
 char modified[BUF_SIZE];
 int packet_len;
-struct iphdr *iph;
-struct tcphdr *tcph;
-nat_table_t *nat_table;
+struct iphdr* iph;
+struct tcphdr* tcph;
+nat_table_t* nat_table;
 
 int queue_cnt;
 int curr_lb_port;
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
     int curr_id = 27507;
     uint32_t next_ack;
     uint32_t next_seq;
@@ -91,7 +83,7 @@ int main(int argc, char *argv[]) {
 
     // Tell the kernel that headers are included in the packet
     int one = 1;
-    const int *val = &one;
+    const int* val = &one;
     if (setsockopt(sock, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) == -1) {
         perror("setsockopt(IP_HDRINCL, 1)");
         exit(EXIT_FAILURE);
@@ -114,21 +106,21 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    if (bind(lb_sock, (struct sockaddr *)&lb_adr, sizeof(lb_adr)) == -1) error_handling("bind() error");
+    if (bind(lb_sock, (struct sockaddr*)&lb_adr, sizeof(lb_adr)) == -1) error_handling("bind() error");
 
     if (listen(lb_sock, SERVER_COUNT) == -1) error_handling("listen() error");
 
     serv_adr_sz = sizeof(serv_adr);
 
     for (int i = 0; i < SERVER_COUNT; i++) {
-        serv_sock = accept(lb_sock, (struct sockaddr *)&serv_adr, &serv_adr_sz);
+        serv_sock = accept(lb_sock, (struct sockaddr*)&serv_adr, &serv_adr_sz);
         if (serv_sock == -1)
             error_handling("accept() error");
         else
             printf("Connected with server, sock: %d port: %d \n", serv_sock, ntohs(serv_adr.sin_port));
 
-        server_t *new_server;
-        new_server = (server_t *)malloc(sizeof(server_t));
+        server_t* new_server;
+        new_server = (server_t*)malloc(sizeof(server_t));
         new_server->ip_addr = serv_adr.sin_addr.s_addr;
         new_server->port = serv_adr.sin_port;
         new_server->sock = serv_sock;
@@ -147,11 +139,11 @@ int main(int argc, char *argv[]) {
             continue;
         else if (check == 1) {
             server_t parse_source = parse_source_addr();
-            nat_table_elem_t *search_result;
+            nat_table_elem_t* search_result;
 
             if ((search_result = nat_table_search_clnt(nat_table, parse_source.ip_addr, parse_source.port)) == NULL) {
-                server_t *match = match_server();
-                search_result = (nat_table_elem_t *)malloc(sizeof(nat_table_elem_t));
+                server_t* match = match_server();
+                search_result = (nat_table_elem_t*)malloc(sizeof(nat_table_elem_t));
                 search_result->clnt_addr = parse_source.ip_addr;
                 search_result->clnt_port = parse_source.port;
                 search_result->lb_port = curr_lb_port++;
@@ -167,13 +159,13 @@ int main(int argc, char *argv[]) {
             daddr.sin_family = AF_INET;
             daddr.sin_port = search_result->serv_port;
             daddr.sin_addr.s_addr = search_result->serv_addr;
-            if ((tmp = sendto(sock, modified, packet_len, 0x0, (struct sockaddr *)&daddr, sizeof(daddr))) < 0) {
+            if ((tmp = sendto(sock, modified, packet_len, 0x0, (struct sockaddr*)&daddr, sizeof(daddr))) < 0) {
                 perror("error syn ");
                 exit(1);
             }
         } else if (check == 2) {
             server_t parse_dest = parse_dest_addr();
-            nat_table_elem_t *search_result;
+            nat_table_elem_t* search_result;
             if ((search_result = nat_table_search_clnt_lb_port(nat_table, ntohs(parse_dest.port))) == NULL) {
                 continue;
             }
@@ -184,7 +176,7 @@ int main(int argc, char *argv[]) {
             daddr.sin_family = AF_INET;
             daddr.sin_port = search_result->clnt_port;
             daddr.sin_addr.s_addr = search_result->clnt_addr;
-            if ((tmp = sendto(sock, modified, packet_len, 0x0, (struct sockaddr *)&daddr, sizeof(daddr))) < 0) {
+            if ((tmp = sendto(sock, modified, packet_len, 0x0, (struct sockaddr*)&daddr, sizeof(daddr))) < 0) {
                 perror("error synack ");
                 exit(1);
             }
@@ -195,25 +187,25 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void error_handling(char *message) {
+void error_handling(char* message) {
     fputs(message, stderr);
     fputc('\n', stderr);
     exit(1);
 }
 
-unsigned short checksum(unsigned short *buffer, int size) {
+unsigned short checksum(unsigned short* buffer, int size) {
     __uint32_t curr_sum = 0;
     for (int i = 0; i < size - 1; i += 2) {
         curr_sum += *(buffer++);
     }
     if (size % 2 == 1) {
-        curr_sum += *((unsigned char *)buffer);
+        curr_sum += *((unsigned char*)buffer);
     }
     while (curr_sum >> 16) curr_sum = (curr_sum >> 16) + (curr_sum & 0xffff);
     return (unsigned short)(~curr_sum);
 }
 
-void server_recv_first_info(server_t *serv) {
+void server_recv_first_info(server_t* serv) {
     int recv_len = recv(serv->sock, &(serv->resource_status), sizeof(resource_t), 0);
     if (recv_len == 0) return;
 
@@ -226,9 +218,9 @@ void server_recv_first_info(server_t *serv) {
 #endif
 }
 
-void *server_thread_func(void *arg) {
+void* server_thread_func(void* arg) {
     int recv_len;
-    server_t *new_server = (server_t *)arg;
+    server_t* new_server = (server_t*)arg;
 
     while (1) {
         recv_len = recv(new_server->sock, &(new_server->resource_status), sizeof(resource_t), 0);
@@ -246,8 +238,8 @@ void *server_thread_func(void *arg) {
 }
 
 int check_conditions() {
-    iph = (struct iphdr *)buffer;
-    tcph = (struct tcphdr *)(buffer + sizeof(struct iphdr));
+    iph = (struct iphdr*)buffer;
+    tcph = (struct tcphdr*)(buffer + sizeof(struct iphdr));
     if (iph->daddr != lb_adr.sin_addr.s_addr || tcph->dest != lb_adr.sin_port) {
         int flag = 0;
         for (int i = ntohs(lb_adr.sin_port); i <= curr_lb_port; i++) {
@@ -265,8 +257,8 @@ int check_conditions() {
 server_t parse_source_addr() {
     server_t parse_addr;
 
-    iph = (struct iphdr *)buffer;
-    tcph = (struct tcphdr *)(buffer + sizeof(struct iphdr));
+    iph = (struct iphdr*)buffer;
+    tcph = (struct tcphdr*)(buffer + sizeof(struct iphdr));
 
     parse_addr.ip_addr = iph->saddr;
     parse_addr.port = tcph->source;
@@ -278,8 +270,8 @@ server_t parse_source_addr() {
 server_t parse_dest_addr() {
     server_t parse_addr;
 
-    iph = (struct iphdr *)buffer;
-    tcph = (struct tcphdr *)(buffer + sizeof(struct iphdr));
+    iph = (struct iphdr*)buffer;
+    tcph = (struct tcphdr*)(buffer + sizeof(struct iphdr));
 
     parse_addr.ip_addr = iph->daddr;
     parse_addr.port = tcph->dest;
@@ -288,7 +280,7 @@ server_t parse_dest_addr() {
     return parse_addr;
 }
 
-server_t *match_server() {
+server_t* match_server() {
     switch (ALGORITHM_FLAG) {
         case 0:
 #ifdef DEBUG
@@ -306,8 +298,21 @@ server_t *match_server() {
             }
 #ifdef DEBUG
             printf("match serv port: %d (clnt cnt: %d)\n", server_pool->servers[less_idx]->port,
-                   server_pool->servers[less_idx]->resource_status.num_connected_client);
+                server_pool->servers[less_idx]->resource_status.num_connected_client);
 #endif
+            return server_pool->servers[less_idx];
+        case 2:
+            double less_d = 2;
+            int less_idx_2 = 0;
+            for (int i = 0; i < server_pool->size; i++) {
+                if ((server_pool->servers[i]->resource_status.cpu_usage +
+                    server_pool->servers[i]->resource_status.memory_left) < less_d) {
+                    less_idx_2 = i;
+                    less_d = server_pool->servers[i]->resource_status.cpu_usage +
+                            server_pool->servers[i]->resource_status.memory_left;
+                }
+            }
+
             return server_pool->servers[less_idx];
     }
 }
@@ -319,8 +324,8 @@ void modify_packet(int lb_port, uint32_t ip_addr, int port) {
 #endif
     memcpy(modified, buffer, BUF_SIZE);
 
-    struct iphdr *miph = (struct iphdr *)modified;
-    struct tcphdr *mtcph = (struct tcphdr *)(modified + sizeof(struct iphdr));
+    struct iphdr* miph = (struct iphdr*)modified;
+    struct tcphdr* mtcph = (struct tcphdr*)(modified + sizeof(struct iphdr));
     packet_len = ntohs(miph->tot_len);
 
     miph->saddr = lb_adr.sin_addr.s_addr;
@@ -331,9 +336,9 @@ void modify_packet(int lb_port, uint32_t ip_addr, int port) {
     mtcph->dest = port;
     mtcph->check = 0;
 
-    char *pseudo_packet = (char *)malloc(sizeof(struct pseudo_header) + packet_len - sizeof(struct iphdr));
-    struct pseudo_header *ph = (struct pseudo_header *)pseudo_packet;
-    struct tcphdr *th = (struct tcphdr *)(pseudo_packet + sizeof(struct pseudo_header));
+    char* pseudo_packet = (char*)malloc(sizeof(struct pseudo_header) + packet_len - sizeof(struct iphdr));
+    struct pseudo_header* ph = (struct pseudo_header*)pseudo_packet;
+    struct tcphdr* th = (struct tcphdr*)(pseudo_packet + sizeof(struct pseudo_header));
 
     ph->saddr = miph->saddr;
     ph->daddr = miph->daddr;
@@ -343,13 +348,13 @@ void modify_packet(int lb_port, uint32_t ip_addr, int port) {
 
     memcpy(pseudo_packet + sizeof(struct pseudo_header), mtcph, packet_len - sizeof(struct iphdr));
     mtcph->check =
-        checksum((unsigned short *)pseudo_packet, sizeof(struct pseudo_header) + packet_len - sizeof(struct iphdr));
+        checksum((unsigned short*)pseudo_packet, sizeof(struct pseudo_header) + packet_len - sizeof(struct iphdr));
 
 #ifdef DEBUG
     printf("tot: %ld\n", ntohs(miph->tot_len));
 #endif
 
-    miph->check = checksum((unsigned short *)modified, packet_len);
+    miph->check = checksum((unsigned short*)modified, packet_len);
     free(pseudo_packet);
 
 #ifdef DEBUG

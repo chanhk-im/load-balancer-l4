@@ -8,6 +8,8 @@ server_pool_t *create_server_pool() {
     new_pool->size = 0;
     new_pool->capacity = 1024;
     new_pool->servers = (server_t **)malloc(sizeof(server_t *) * new_pool->capacity);
+
+    return new_pool;
 }
 
 void server_pool_push(server_pool_t *server_pool, server_t *serv) {
